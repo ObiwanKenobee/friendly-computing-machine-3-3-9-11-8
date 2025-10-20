@@ -1,0 +1,829 @@
+// QuantumVest Prisma Schema
+// Core vault data with PostgreSQL backend
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// ============================================================================
+// USER MANAGEMENT & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile Information
+  firstName     String?
+  lastName      String?
+  avatarUrl     String?
+  dateOfBirth   DateTime?
+  country       String?
+  language      String   @default("en")
+  timezone      String   @default("UTC")
+  currency      String   @default("USD")
+
+  // Investment Profile
+  riskTolerance       RiskTolerance @default(MODERATE)
+  investmentExperience InvestmentExperience @default(BEGINNER)
+  annualIncome        Decimal?
+  netWorth           Decimal?
+  investmentGoals    String[]
+  timeHorizon        TimeHorizon @default(MEDIUM_TERM)
+
+  // Cultural Framework
+  culturalFramework   String?
+  ethicalPreferences  String[]
+  impactPriorities   String[]
+  exclusionCriteria  String[]
+
+  // KYC & Verification
+  kycStatus          KYCStatus @default(PENDING)
+  kycDocuments       Json?
+  verificationLevel  VerificationLevel @default(BASIC)
+  verifiedAt         DateTime?
+
+  // Security & Auth
+  passwordHash       String
+  mfaEnabled         Boolean @default(false)
+  mfaSecret          String?
+  recoveryKeys       String[]
+  lastLogin          DateTime?
+  loginAttempts      Int @default(0)
+  lockedUntil        DateTime?
+
+  // Subscription & Billing
+  subscriptionTier   SubscriptionTier @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(INACTIVE)
+  stripeCustomerId   String?
+  paypalCustomerId   String?
+  subscriptionExpires DateTime?
+  trialEnds          DateTime?
+
+  // Relationships
+  vaults             Vault[]
+  transactions       Transaction[]
+  rituals            Ritual[]
+  sessions           UserSession[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  impactMetrics      ImpactIndex[]
+  
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// ============================================================================
+// VAULT MANAGEMENT
+// ============================================================================
+
+model Vault {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Vault Configuration
+  vaultType          VaultType
+  strategy           InvestmentStrategy
+  minimumInvestment  Decimal
+  maximumInvestment  Decimal?
+  managementFee      Decimal @default(0)
+  performanceFee     Decimal @default(0)
+  liquidityTerms     Json
+  
+  // Portfolio Metrics
+  totalValue         Decimal @default(0)
+  availableCash      Decimal @default(0)
+  investedAmount     Decimal @default(0)
+  unrealizedPnL      Decimal @default(0)
+  realizedPnL        Decimal @default(0)
+  
+  // Risk & Performance
+  riskScore          Decimal?
+  volatility         Decimal?
+  sharpeRatio        Decimal?
+  maxDrawdown        Decimal?
+  beta               Decimal?
+  alpha              Decimal?
+  
+  // Cultural & Impact
+  culturalAlignment  Decimal?
+  impactScore        Decimal?
+  esgRating          String?
+  carbonFootprint    Decimal?
+  socialImpactPoints Decimal?
+  
+  // Vault Status
+  status             VaultStatus @default(ACTIVE)
+  isPublic           Boolean @default(false)
+  isQuantumEnabled   Boolean @default(false)
+  quantumCircuitId   String?
+  
+  // Relationships
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent      VaultAgentAI?
+  holdings   Holding[]
+  transactions Transaction[]
+  rituals    Ritual[]
+  reports    VaultReport[]
+  
+  @@map("vaults")
+}
+
+model VaultAgentAI {
+  id        String   @id @default(cuid())
+  vaultId   String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // AI Configuration
+  agentType          AgentType
+  modelVersion       String
+  confidenceThreshold Decimal @default(0.8)
+  learningRate       Decimal @default(0.001)
+  trainingData       Json?
+  
+  // Decision Making
+  riskParameters     Json
+  tradingRules       Json
+  rebalancingStrategy Json
+  emergencyProtocols Json
+  
+  // Performance Tracking
+  decisionsCount     Int @default(0)
+  successRate        Decimal?
+  avgReturnPerTrade  Decimal?
+  totalPnL           Decimal @default(0)
+  
+  // Quantum Features
+  quantumOptimized   Boolean @default(false)
+  quantumCircuits    String[]
+  coherenceTime      Decimal?
+  fidelityScore      Decimal?
+  
+  // Status & Controls
+  isActive           Boolean @default(true)
+  autoTradingEnabled Boolean @default(false)
+  maxDailyTrades     Int @default(10)
+  maxRiskExposure    Decimal @default(0.05)
+  
+  // Relationships
+  vault       Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  decisions   AgentDecision[]
+  
+  @@map("vault_agents")
+}
+
+model AgentDecision {
+  id        String   @id @default(cuid())
+  agentId   String
+  createdAt DateTime @default(now())
+
+  // Decision Details
+  decisionType    DecisionType
+  assetSymbol     String
+  action          AgentAction
+  quantity        Decimal
+  targetPrice     Decimal?
+  reasoning       String
+  confidence      Decimal
+  
+  // Execution
+  executed        Boolean @default(false)
+  executedAt      DateTime?
+  executionPrice  Decimal?
+  executionFee    Decimal?
+  
+  // Outcome
+  successful      Boolean?
+  actualReturn    Decimal?
+  expectedReturn  Decimal?
+  impactOnRisk    Decimal?
+  
+  // Quantum Analysis
+  quantumProbability Decimal?
+  entanglementFactors Json?
+  
+  agent VaultAgentAI @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@map("agent_decisions")
+}
+
+// ============================================================================
+// HOLDINGS & TRANSACTIONS
+// ============================================================================
+
+model Holding {
+  id        String   @id @default(cuid())
+  vaultId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Asset Information
+  assetId        String
+  assetType      AssetType
+  symbol         String
+  name           String
+  
+  // Position Details
+  quantity       Decimal
+  averageCost    Decimal
+  currentPrice   Decimal
+  marketValue    Decimal
+  unrealizedPnL  Decimal
+  weight         Decimal // Portfolio weight percentage
+  
+  // Acquisition Details
+  acquisitionDate DateTime
+  initialCost     Decimal
+  
+  // Performance Metrics
+  totalReturn     Decimal?
+  dailyReturn     Decimal?
+  weeklyReturn    Decimal?
+  monthlyReturn   Decimal?
+  
+  // Risk Metrics
+  beta            Decimal?
+  volatility      Decimal?
+  correlationToMarket Decimal?
+  
+  // Cultural & Impact
+  impactScore     Decimal?
+  culturalAlignment Decimal?
+  esgRating       String?
+  
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  
+  @@map("holdings")
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  vaultId   String?
+  createdAt DateTime @default(now())
+  
+  // Transaction Details
+  type           TransactionType
+  assetId        String?
+  assetSymbol    String?
+  quantity       Decimal?
+  price          Decimal?
+  totalAmount    Decimal
+  fee            Decimal @default(0)
+  
+  // Status & Settlement
+  status         TransactionStatus @default(PENDING)
+  settlementDate DateTime?
+  confirmedAt    DateTime?
+  
+  // Payment Details
+  paymentMethod  PaymentMethod?
+  paymentRef     String?
+  currency       String @default("USD")
+  exchangeRate   Decimal @default(1)
+  
+  // Metadata
+  description    String?
+  tags           String[]
+  metadata       Json?
+  
+  // Risk & Compliance
+  riskScore      Decimal?
+  complianceFlags String[]
+  amlChecked     Boolean @default(false)
+  
+  // Relationships
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vault  Vault? @relation(fields: [vaultId], references: [id], onDelete: SetNull)
+  
+  @@map("transactions")
+}
+
+// ============================================================================
+// RITUALS & AUTOMATION
+// ============================================================================
+
+model Ritual {
+  id        String   @id @default(cuid())
+  userId    String
+  vaultId   String?
+  name      String
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Ritual Configuration
+  ritualType     RitualType
+  frequency      RitualFrequency
+  triggerConditions Json
+  actions        Json
+  
+  // Scheduling
+  nextExecution  DateTime?
+  lastExecution  DateTime?
+  timezone       String @default("UTC")
+  
+  // Investment Rules
+  amountPerExecution Decimal?
+  maxMonthlyAmount   Decimal?
+  targetAssets       String[]
+  allocationRules    Json
+  
+  // Cultural & Impact Filters
+  culturalCriteria   Json?
+  impactRequirements Json?
+  exclusionRules     Json?
+  
+  // Status & Controls
+  isActive           Boolean @default(true)
+  isPaused           Boolean @default(false)
+  executionCount     Int @default(0)
+  totalInvested      Decimal @default(0)
+  
+  // Performance
+  avgReturnPerExecution Decimal?
+  totalReturn           Decimal?
+  successRate           Decimal?
+  
+  // Relationships
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vault      Vault? @relation(fields: [vaultId], references: [id], onDelete: SetNull)
+  executions RitualExecution[]
+  
+  @@map("rituals")
+}
+
+model RitualExecution {
+  id        String   @id @default(cuid())
+  ritualId  String
+  createdAt DateTime @default(now())
+  
+  // Execution Details
+  scheduledFor   DateTime
+  executedAt     DateTime?
+  status         ExecutionStatus @default(PENDING)
+  
+  // Transaction Details
+  amountInvested Decimal?
+  assetsAcquired Json?
+  fees           Decimal @default(0)
+  
+  // Results
+  successful     Boolean?
+  errorMessage   String?
+  performance    Decimal?
+  impactScore    Decimal?
+  
+  // Metadata
+  metadata       Json?
+  
+  ritual Ritual @relation(fields: [ritualId], references: [id], onDelete: Cascade)
+  
+  @@map("ritual_executions")
+}
+
+// ============================================================================
+// IMPACT & ESG TRACKING
+// ============================================================================
+
+model ImpactIndex {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Impact Measurement
+  period            String // e.g., "2024-Q1"
+  totalImpactScore  Decimal
+  environmentalScore Decimal
+  socialScore       Decimal
+  governanceScore   Decimal
+  
+  // Detailed Metrics
+  carbonSaved       Decimal?
+  jobsCreated       Decimal?
+  communitiesServed Int?
+  waterConserved    Decimal?
+  renewableEnergy   Decimal?
+  
+  // Investment Context
+  totalInvestment   Decimal
+  impactPerDollar   Decimal
+  portfolioSize     Decimal
+  
+  // Cultural Alignment
+  culturalAlignment Decimal?
+  localImpact       Decimal?
+  traditionRespect  Decimal?
+  communityBenefit  Decimal?
+  
+  // Verification & Sources
+  verified          Boolean @default(false)
+  verificationSource String?
+  dataSources       String[]
+  confidence        Decimal @default(1.0)
+  
+  // Comparative Metrics
+  peerRanking       Int?
+  industryAverage   Decimal?
+  improvementTrend  Decimal?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("impact_indices")
+}
+
+// ============================================================================
+// REPORTING & ANALYTICS
+// ============================================================================
+
+model VaultReport {
+  id        String   @id @default(cuid())
+  vaultId   String
+  createdAt DateTime @default(now())
+  
+  // Report Metadata
+  reportType    ReportType
+  period        String
+  generatedBy   String? // User ID or "system"
+  
+  // Performance Data
+  performanceData Json
+  riskMetrics     Json
+  holdingsSnapshot Json
+  transactionSummary Json
+  
+  // Impact & ESG
+  impactData      Json?
+  esgScores       Json?
+  culturalMetrics Json?
+  
+  // Files & Storage
+  reportUrl       String?
+  ipfsHash        String? // For decentralized storage
+  fileSize        BigInt?
+  
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  
+  @@map("vault_reports")
+}
+
+// ============================================================================
+// NOTIFICATIONS & COMMUNICATIONS
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  
+  // Notification Content
+  type        NotificationType
+  title       String
+  message     String
+  priority    NotificationPriority @default(MEDIUM)
+  
+  // Delivery & Status
+  readAt      DateTime?
+  deliveredAt DateTime?
+  channel     NotificationChannel @default(IN_APP)
+  
+  // Action & Context
+  actionUrl   String?
+  actionLabel String?
+  metadata    Json?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+// ============================================================================
+// AUDIT & COMPLIANCE
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  createdAt DateTime @default(now())
+  
+  // Action Details
+  action      String
+  entityType  String
+  entityId    String?
+  oldData     Json?
+  newData     Json?
+  
+  // Context
+  ipAddress   String?
+  userAgent   String?
+  sessionId   String?
+  
+  // Risk & Compliance
+  riskLevel   RiskLevel @default(LOW)
+  complianceRelevant Boolean @default(false)
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum RiskTolerance {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+  VERY_AGGRESSIVE
+}
+
+enum InvestmentExperience {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum TimeHorizon {
+  SHORT_TERM    // < 2 years
+  MEDIUM_TERM   // 2-10 years
+  LONG_TERM     // > 10 years
+  PERPETUAL     // Generational wealth
+}
+
+enum KYCStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum VerificationLevel {
+  BASIC
+  ENHANCED
+  PREMIUM
+  INSTITUTIONAL
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  ULTRA
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+enum VaultType {
+  PERSONAL_PORTFOLIO
+  CULTURAL_INVESTMENT
+  IMPACT_FUND
+  QUANTUM_FUND
+  COMMUNITY_VAULT
+  INSTITUTIONAL_FUND
+}
+
+enum InvestmentStrategy {
+  PASSIVE_INDEX
+  ACTIVE_GROWTH
+  VALUE_INVESTING
+  DIVIDEND_FOCUS
+  ESG_SCREENED
+  IMPACT_FIRST
+  QUANTUM_OPTIMIZED
+  CULTURAL_ALIGNMENT
+}
+
+enum VaultStatus {
+  ACTIVE
+  PAUSED
+  LIQUIDATING
+  CLOSED
+  UNDER_REVIEW
+}
+
+enum AgentType {
+  CONSERVATIVE_AI
+  BALANCED_AI
+  AGGRESSIVE_AI
+  QUANTUM_AI
+  CULTURAL_AI
+  IMPACT_AI
+}
+
+enum DecisionType {
+  BUY_ORDER
+  SELL_ORDER
+  REBALANCE
+  RISK_HEDGE
+  PROFIT_TAKING
+  STOP_LOSS
+}
+
+enum AgentAction {
+  BUY
+  SELL
+  HOLD
+  HEDGE
+  REBALANCE
+}
+
+enum AssetType {
+  STOCK
+  BOND
+  ETF
+  MUTUAL_FUND
+  CRYPTOCURRENCY
+  COMMODITY
+  REAL_ESTATE
+  TOKENIZED_ASSET
+  IMPACT_BOND
+  CULTURAL_ASSET
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BUY
+  SELL
+  DIVIDEND
+  INTEREST
+  FEE
+  TRANSFER
+  REWARD
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+  STRIPE
+  CRYPTOCURRENCY
+  MOBILE_MONEY
+  WIRE_TRANSFER
+}
+
+enum RitualType {
+  DOLLAR_COST_AVERAGING
+  REBALANCING
+  PROFIT_TAKING
+  CULTURAL_SCREENING
+  IMPACT_OPTIMIZATION
+  QUANTUM_ADJUSTMENT
+}
+
+enum RitualFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  CUSTOM
+}
+
+enum ExecutionStatus {
+  PENDING
+  EXECUTING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ReportType {
+  MONTHLY_PERFORMANCE
+  QUARTERLY_REVIEW
+  ANNUAL_SUMMARY
+  IMPACT_REPORT
+  RISK_ASSESSMENT
+  COMPLIANCE_REPORT
+}
+
+enum NotificationType {
+  TRANSACTION_UPDATE
+  VAULT_PERFORMANCE
+  AGENT_DECISION
+  RITUAL_EXECUTION
+  SECURITY_ALERT
+  SYSTEM_UPDATE
+  IMPACT_MILESTONE
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+  WEBHOOK
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================================================
+// INDEXES FOR PERFORMANCE
+// ============================================================================
+
+// User indexes
+@@index([users.email])
+@@index([users.subscriptionTier])
+@@index([users.kycStatus])
+@@index([users.createdAt])
+
+// Vault indexes
+@@index([vaults.userId])
+@@index([vaults.vaultType])
+@@index([vaults.status])
+@@index([vaults.totalValue])
+@@index([vaults.createdAt])
+
+// Transaction indexes
+@@index([transactions.userId])
+@@index([transactions.vaultId])
+@@index([transactions.type])
+@@index([transactions.status])
+@@index([transactions.createdAt])
+
+// Holdings indexes
+@@index([holdings.vaultId])
+@@index([holdings.assetType])
+@@index([holdings.assetId])
+
+// Ritual indexes
+@@index([rituals.userId])
+@@index([rituals.vaultId])
+@@index([rituals.isActive])
+@@index([rituals.nextExecution])
+
+// Impact indexes
+@@index([impact_indices.userId])
+@@index([impact_indices.period])
+@@index([impact_indices.totalImpactScore])
+
+// Audit logs indexes
+@@index([audit_logs.userId])
+@@index([audit_logs.action])
+@@index([audit_logs.createdAt])
+@@index([audit_logs.riskLevel])

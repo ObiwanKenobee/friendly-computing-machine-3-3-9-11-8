@@ -1,0 +1,152 @@
+# QuantumVest Prometheus Configuration
+# Comprehensive monitoring setup for all services
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: "quantumvest"
+    environment: "production"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # QuantumVest Application
+  - job_name: "quantumvest-app"
+    metrics_path: "/metrics"
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["quantumvest:5173"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "quantumvest:5173"
+
+  # PostgreSQL Database
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "quantumvest-postgres"
+
+  # Redis Cache
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "quantumvest-redis"
+
+  # MongoDB Events Store
+  - job_name: "mongodb"
+    static_configs:
+      - targets: ["mongodb-exporter:9216"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "quantumvest-mongodb"
+
+  # Node Exporter (System Metrics)
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # cAdvisor (Container Metrics)
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+    metrics_path: "/metrics"
+
+  # NGINX Metrics
+  - job_name: "nginx"
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
+
+  # AWS CloudWatch Metrics
+  - job_name: "cloudwatch"
+    ec2_sd_configs:
+      - region: us-east-1
+        port: 9100
+        filters:
+          - name: "tag:Project"
+            values: ["QuantumVest"]
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+
+  # ECS Service Discovery
+  - job_name: "ecs-discovery"
+    ecs_sd_configs:
+      - region: us-east-1
+        cluster: quantumvest-production-cluster
+        port: 9090
+    relabel_configs:
+      - source_labels: [__meta_ecs_service_name]
+        target_label: service
+      - source_labels: [__meta_ecs_container_name]
+        target_label: container
+
+  # IPFS Node Metrics
+  - job_name: "ipfs"
+    static_configs:
+      - targets: ["ipfs:5001"]
+    metrics_path: "/debug/metrics/prometheus"
+
+  # Custom Application Metrics
+  - job_name: "quantumvest-custom"
+    metrics_path: "/api/metrics"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["quantumvest:5173"]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "quantumvest_.*"
+        target_label: service
+        replacement: "quantumvest"
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: "https://prometheus-remote-write.example.com/api/v1/write"
+    basic_auth:
+      username: "prometheus"
+      password: "secure_password"
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
+
+# Remote read configuration
+remote_read:
+  - url: "https://prometheus-remote-read.example.com/api/v1/read"
+    basic_auth:
+      username: "prometheus"
+      password: "secure_password"
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true

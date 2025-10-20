@@ -1,0 +1,109 @@
+# QuantumVest Grafana Datasources Configuration
+
+apiVersion: 1
+
+datasources:
+  # Prometheus - Main metrics source
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+      manageAlerts: true
+      prometheusType: "Prometheus"
+      prometheusVersion: "2.45.0"
+      cacheLevel: "High"
+      incrementalQueryOverlapWindow: "10m"
+    secureJsonData: {}
+
+  # CloudWatch - AWS metrics
+  - name: CloudWatch
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      authType: "default"
+      defaultRegion: "us-east-1"
+      customMetricsNamespaces: "AWS/ECS,AWS/ApplicationELB,AWS/RDS,AWS/ElastiCache,Custom/QuantumVest"
+      assumeRoleArn: "arn:aws:iam::123456789012:role/GrafanaCloudWatchRole"
+    editable: true
+
+  # ElasticSearch - Application logs
+  - name: ElasticSearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "quantumvest-logs-*"
+    jsonData:
+      timeField: "@timestamp"
+      esVersion: "8.11.0"
+      interval: "Daily"
+      maxConcurrentShardRequests: 5
+      logMessageField: "message"
+      logLevelField: "level"
+    editable: true
+
+  # Loki - Structured logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: "prometheus_uid"
+          matcherRegex: "trace_id=(\\w+)"
+          name: "TraceID"
+          url: "$${__value.raw}"
+    editable: true
+
+  # Jaeger - Distributed tracing
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    jsonData:
+      tracesToLogs:
+        datasourceUid: "loki_uid"
+        tags: ["job", "instance", "pod", "namespace"]
+        mappedTags: [{ key: "service.name", value: "service" }]
+        mapTagNamesEnabled: true
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        filterByTraceID: true
+        filterBySpanID: false
+    editable: true
+
+  # InfluxDB - Time series data for quantum metrics
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: "quantumvest"
+    user: "quantumvest"
+    jsonData:
+      version: "InfluxQL"
+      timeInterval: "10s"
+      httpMode: "GET"
+    secureJsonData:
+      password: "quantum_secure_password"
+    editable: true
+
+  # TestData - For dashboard development
+  - name: TestData
+    type: testdata
+    access: proxy
+    editable: false
+    jsonData:
+      scenarios:
+        - id: "csv_metric_values"
+          name: "CSV Metric Values"
+          csvContent: |
+            timestamp,value
+            1609459200,100
+            1609459260,110
+            1609459320,105
