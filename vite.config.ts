@@ -36,7 +36,7 @@ export default defineConfig({
     sourcemap: process.env.GENERATE_SOURCEMAP !== "false",
     chunkSizeWarningLimit: 1000,
     assetsDir: "assets",
-    emptyOutDir: true,
+    emptyOutDir: false,
     rollupOptions: {
       output: {
         manualChunks: {
