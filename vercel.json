@@ -10,16 +10,6 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "https://quantum-api-gateway.quantumvest.com/api/v1/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
   "env": {
     "VITE_API_BASE_URL": "https://quantum-api-gateway.quantumvest.com",
     "VITE_QUANTUM_ALGEBRA_URL": "https://quantum-api-gateway.quantumvest.com/api/v1/algebra",
@@ -38,6 +28,28 @@
       "NODE_ENV": "production"
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://quantum-api-gateway.quantumvest.com/api/v1/$1"
+    },
+    {
+      "source": "/quantum/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
@@ -76,20 +88,6 @@
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://quantum-api-gateway.quantumvest.com wss:"
         }
       ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/quantum/(.*)",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/dashboard/(.*)",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/auth/(.*)",
-      "destination": "/index.html"
     }
   ],
   "cleanUrls": true,
