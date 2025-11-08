@@ -38,11 +38,6 @@
       "NODE_ENV": "production"
     }
   },
-  "functions": {
-    "app/api/health.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
